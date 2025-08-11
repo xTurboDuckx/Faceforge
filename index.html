@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="FaceForge 3D" />
+<meta name="theme-color" content="#1a1a2e" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>FaceForge 3D - Mobile (PWA)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  /* === (unchanged app styles) === */
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;
+    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; color:#333; overflow-x:hidden; touch-action:manipulation; }
+  .header { background:rgba(255,255,255,.1); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    padding:15px; text-align:center; border-bottom:1px solid rgba(255,255,255,.2); position:sticky; top:0; z-index:100; }
+  .header h1 { color:#fff; font-size:1.8em; margin-bottom:5px; text-shadow:2px 2px 4px rgba(0,0,0,.3); }
+  .header p { color:rgba(255,255,255,.9); font-size:.9em; }
+  .mobile-container { padding:20px 15px; max-width:100vw; }
+  .section { background:rgba(255,255,255,.95); border-radius:16px; padding:20px; margin-bottom:20px;
+    box-shadow:0 8px 32px rgba(0,0,0,.1); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .section h3 { color:#4a5568; margin-bottom:15px; font-size:1.1em; display:flex; align-items:center; gap:8px; }
+  .upload-section .upload-count { font-size:.9em; color:#718096; margin-bottom:15px; text-align:center; font-weight:500; }
+  .privacy-note { font-size:.8em; color:#64748b; text-align:center; margin-top:8px; }
+  .upload-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  .upload-item { border:2px dashed #cbd5e0; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:.3s;
+    background:#f7fafc; position:relative; min-height:110px; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+  .upload-item:active { transform:scale(.98); } .upload-item.uploaded { border-color:#48bb78; background:#f0fff4; }
+  .upload-item input[type="file"] { position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; z-index:10; }
+  .upload-content { pointer-events:none; }
+  .upload-item img { max-width:60px; max-height:60px; border-radius:8px; margin-bottom:8px; }
+  .upload-icon { font-size:2em; margin-bottom:8px; } .upload-text { font-weight:500; margin-bottom:4px; }
+  .upload-hint { font-size:.8em; color:#718096; }
+  .thumbs { display:flex; gap:14px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+  .thumb { width:62px; } .thumb .img { width:62px; height:62px; border-radius:10px; background:#e2e8f0; overflow:hidden; border:2px solid #e2e8f0; }
+  .thumb .img img { width:100%; height:100%; object-fit:cover; } .thumb .lbl { font-size:.75em; text-align:center; color:#64748b; margin-top:4px; }
+  .style-section .style-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .style-btn { padding:15px 10px; border:2px solid #e2e8f0; border-radius:12px; background:#fff; cursor:pointer; transition:.3s;
+    font-weight:500; text-align:center; font-size:.9em; display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .style-btn:active { transform:scale(.95); } .style-btn.active { border-color:#667eea; background:#667eea; color:#fff; }
+  .style-emoji { font-size:1.5em; }
+  .generate-btn { width:100%; padding:18px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; border:none; border-radius:16px;
+    font-size:1.1em; font-weight:600; cursor:pointer; transition:.3s; margin-bottom:15px; box-shadow:0 4px 16px rgba(102,126,234,.3); }
+  .generate-btn:active { transform:translateY(1px); } .generate-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+  .export-btn { width:100%; padding:15px; background:#48bb78; color:#fff; border:none; border-radius:12px; font-weight:600; cursor:pointer; transition:.3s; font-size:1em; }
+  .export-btn:active { transform:translateY(1px); } .export-btn:disabled { opacity:.6; cursor:not-allowed; }
+  .progress-bar { width:100%; height:8px; background:#e2e8f0; border-radius:4px; margin:15px 0; overflow:hidden; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,#667eea,#764ba2); width:0%; transition:width .3s; }
+  .viewer { width:100%; height:300px; border-radius:16px; background:rgba(255,255,255,.1); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.2); box-shadow:0 8px 32px rgba(0,0,0,.2); position:relative; overflow:hidden; touch-action:none; }
+  .viewer-placeholder { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:rgba(255,255,255,.8); text-align:center; font-size:1em; }
+  .placeholder-icon { font-size:3em; margin-bottom:15px; }
+  .controls-hint { background:rgba(0,0,0,.7); color:#fff; padding:10px 15px; border-radius:20px; font-size:.8em; text-align:center; margin-top:10px;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+  .touch-controls { display:grid; grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr 1fr; gap:8px; max-width:200px; margin:0 auto; }
+  .control-btn { background:rgba(255,255,255,.9); border:none; border-radius:12px; padding:12px; font-size:1.2em; cursor:pointer; transition:.3s;
+    box-shadow:0 2px 8px rgba(0,0,0,.1); touch-action:manipulation; }
+  .control-btn:active { transform:scale(.95); background:#fff; }
+  .control-btn:nth-child(1){grid-column:2;grid-row:1;} .control-btn:nth-child(2){grid-column:1;grid-row:2;}
+  .control-btn:nth-child(3){grid-column:3;grid-row:2;} .control-btn:nth-child(4){grid-column:2;grid-row:2;}
+  .control-btn:nth-child(5){grid-column:2;grid-row:3;}
+  .zoom-controls { display:flex; gap:10px; justify-content:center; margin-top:15px; }
+  .zoom-btn { background:rgba(255,255,255,.9); border:none; border-radius:50%; width:50px; height:50px; font-size:1.5em; cursor:pointer; transition:.3s; box-shadow:0 2px 8px rgba(0,0,0,.1); }
+  .zoom-btn:active { transform:scale(.9); }
+  .status-indicator { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:8px; }
+  .status-indicator.pending { background:#fbb040; } .status-indicator.ready { background:#48bb78; }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.05);} } .processing { animation:pulse 2s infinite; }
+
+  /* Camera modal + overlays */
+  .camera-modal { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; z-index:1000; }
+  .camera-sheet { width:min(520px,92vw); background:#0b0b15; color:#fff; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  .camHeader { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#141429; }
+  .camHeader strong { font-size:.95em; }
+  .camBody { position:relative; background:#000; aspect-ratio:3/4; }
+  video#cameraPreview { width:100%; height:100%; object-fit:cover; background:#000; }
+  canvas#snapshotCanvas { position:absolute; inset:0; width:100%; height:100%; display:none; }
+  .camFooter { display:flex; gap:10px; padding:12px; background:#141429; flex-wrap:wrap; justify-content:center; }
+  .btn { padding:12px 16px; border:none; border-radius:12px; font-weight:600; cursor:pointer; }
+  .btn.primary { background:#667eea; color:#fff; } .btn.secondary { background:#1f1f39; color:#cbd5e1; }
+  .btn.destructive { background:#ef4444; color:#fff; } .btn:active { transform:translateY(1px); }
+  .shutterBtn { width:64px; height:64px; border-radius:50%; background:#fff; border:6px solid #667eea; }
+  .hidden { display:none !important; }
+
+  .faceGuide { position:absolute; inset:0; pointer-events:none; }
+  .faceGuide::before { content:""; position:absolute; inset:0;
+    background: radial-gradient(ellipse 38% 50% at 50% 45%, transparent 60%, rgba(0,0,0,0.55) 61%), transparent; }
+  .guideHint { position:absolute; left:50%; transform:translateX(-50%); bottom:10px; color:#e5e7eb; font-size:.9em;
+    background:rgba(0,0,0,.35); padding:6px 10px; border-radius:10px; }
+  .arrowHint { position:absolute; top:50%; transform:translateY(-50%); color:#e5e7eb; font-size:1.4em; opacity:.9; }
+  .arrowLeft{ left:10px; } .arrowRight{ right:10px; }
+
+  .countdownBadge { position:absolute; top:10px; right:10px; background:rgba(0,0,0,.5); color:#fff; padding:6px 10px; border-radius:999px; font-weight:600; font-size:.95em; }
+
+  @supports (-webkit-touch-callout:none) { .section { border:1px solid rgba(255,255,255,.3); } }
+  @media (max-width:375px){ .mobile-container{padding:15px 10px;} .section{padding:15px;} .viewer{height:250px;} }
+  @media (min-width:768px){ .mobile-container{max-width:600px;margin:0 auto;} .viewer{height:400px;} }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎭 FaceForge 3D</h1>
+    <p>Create stunning 3D headshots on mobile</p>
+  </div>
+
+  <div class="mobile-container">
+    <div class="section upload-section">
+      <h3>📸 Upload Photos</h3>
+      <div class="upload-count">
+        <span class="status-indicator pending" id="statusIndicator"></span>
+        <span id="uploadCount">0</span>/3 photos uploaded
+      </div>
+
+      <div class="upload-grid">
+        <div class="upload-item" data-type="front">
+          <input type="file" id="frontPhoto" accept="image/*" />
+          <div class="upload-content">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Front View</div>
+            <div class="upload-hint">Tap to take or choose</div>
+          </div>
+        </div>
+        <div class="upload-item" data-type="left">
+          <input type="file" id="leftPhoto" accept="image/*" />
+          <div class="upload-content">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Left Profile</div>
+            <div class="upload-hint">Tap to take or choose</div>
+          </div>
+        </div>
+        <div class="upload-item" data-type="right">
+          <input type="file" id="rightPhoto" accept="image/*" />
+          <div class="upload-content">
+            <div class="upload-icon">📷</div>
+            <div class="upload-text">Right Profile</div>
+            <div class="upload-hint">Tap to take or choose</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thumbnails -->
+      <div class="thumbs">
+        <div class="thumb"><div class="img"><img id="thumb-front" alt="" /></div><div class="lbl">Front</div></div>
+        <div class="thumb"><div class="img"><img id="thumb-left"  alt="" /></div><div class="lbl">Left</div></div>
+        <div class="thumb"><div class="img"><img id="thumb-right" alt="" /></div><div class="lbl">Right</div></div>
+      </div>
+
+      <div class="privacy-note">🔒 Photos stay on your device unless you export.</div>
+    </div>
+
+    <div class="section style-section">
+      <h3>🎨 Choose Style</h3>
+      <div class="style-grid">
+        <button class="style-btn active" data-style="realistic"><span class="style-emoji">📸</span><span>Realistic</span></button>
+        <button class="style-btn" data-style="pixar"><span class="style-emoji">🎬</span><span>Pixar</span></button>
+        <button class="style-btn" data-style="ghibli"><span class="style-emoji">🌸</span><span>Ghibli</span></button>
+        <button class="style-btn" data-style="sketch"><span class="style-emoji">✏️</span><span>Sketch</span></button>
+      </div>
+    </div>
+
+    <div class="section controls-section">
+      <h3>🛠️ Generate Model</h3>
+      <button class="generate-btn" id="generateBtn" disabled>Upload 3 photos to generate</button>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <button class="export-btn" id="exportBtn" disabled>💾 Export Current View</button>
+    </div>
+
+    <div class="section viewer-section">
+      <h3>🖼️ 3D Preview</h3>
+      <div class="viewer" id="viewer">
+        <div class="viewer-placeholder">
+          <div class="placeholder-icon">🎭</div>
+          <div>Upload 3 photos to begin</div>
+          <div style="font-size:.8em; margin-top:8px; opacity:.7;">Front view + left & right profiles needed</div>
+        </div>
+      </div>
+
+      <div id="touchControls" class="hidden">
+        <div class="controls-hint">Use controls below to rotate and zoom</div>
+        <div class="touch-controls">
+          <button class="control-btn" data-action="up">↑</button>
+          <button class="control-btn" data-action="left">←</button>
+          <button class="control-btn" data-action="right">→</button>
+          <button class="control-btn" data-action="reset">⌂</button>
+          <button class="control-btn" data-action="down">↓</button>
+        </div>
+        <div class="zoom-controls">
+          <button class="zoom-btn" data-action="zoom-in">+</button>
+          <button class="zoom-btn" data-action="zoom-out">−</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera modal -->
+  <div class="camera-modal" id="cameraModal" aria-hidden="true">
+    <div class="camera-sheet" role="dialog" aria-modal="true" aria-labelledby="camTitle">
+      <div class="camHeader">
+        <strong id="camTitle">Take Photo</strong>
+        <button class="btn secondary" id="closeCam" aria-label="Close camera">✕</button>
+      </div>
+      <div class="camBody">
+        <div id="countdown" class="countdownBadge" style="display:none;">3</div>
+        <video id="cameraPreview" playsinline autoplay muted></video>
+        <canvas id="snapshotCanvas"></canvas>
+        <div id="faceGuide" class="faceGuide" aria-hidden="true">
+          <div id="guideHint" class="guideHint">Center your face in the oval</div>
+          <div id="arrowL" class="arrowHint arrowLeft" style="display:none;">↩</div>
+          <div id="arrowR" class="arrowHint arrowRight" style="display:none;">↪</div>
+        </div>
+      </div>
+      <div class="camFooter">
+        <button class="btn secondary" id="pickFromGallery">🖼️ Pick from Gallery</button>
+        <button class="btn shutterBtn" id="shutter" aria-label="Shutter"></button>
+        <button class="btn destructive hidden" id="retake">Retake</button>
+        <button class="btn primary hidden" id="usePhoto">Use Photo</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+class FaceForge3DMobile {
+  constructor() {
+    this.uploadedPhotos = {};
+    this.currentStyle = 'realistic';
+    this.scene = null; this.camera = null; this.renderer = null; this.headMesh = null;
+    this.isModelGenerated = false; this.rotation = { x:0, y:0 }; this.isProcessing = false;
+
+    this.modal = null; this.video = null; this.canvas = null; this.stream = null;
+    this.captureForType = null; this.shutterBtn = null; this.useBtn = null; this.retakeBtn = null; this.pickBtn = null;
+    this._pendingDataURL = null;
+
+    this.init();
+  }
+
+  init() {
+    this.cacheEls();
+    this.restoreDraft();
+    this.setupEventListeners();
+    this.setupTouchControls();
+    this.preventZoom();
+
+    // Register service worker (PWA)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(console.warn);
+    }
+  }
+
+  cacheEls() {
+    this.modal = document.getElementById('cameraModal');
+    this.video = document.getElementById('cameraPreview');
+    this.canvas = document.getElementById('snapshotCanvas');
+    this.shutterBtn = document.getElementById('shutter');
+    this.useBtn = document.getElementById('usePhoto');
+    this.retakeBtn = document.getElementById('retake');
+    this.pickBtn = document.getElementById('pickFromGallery');
+    document.getElementById('closeCam').addEventListener('click', () => this.closeCamera());
+
+    this.thumbs = {
+      front: document.getElementById('thumb-front'),
+      left:  document.getElementById('thumb-left'),
+      right: document.getElementById('thumb-right')
+    };
+  }
+
+  preventZoom() {
+    document.addEventListener('touchmove', (event) => { if (event.scale !== 1) event.preventDefault(); }, { passive:false });
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (event) => { const now = Date.now(); if (now-lastTouchEnd<=300) event.preventDefault(); lastTouchEnd = now; }, false);
+  }
+
+  setupEventListeners() {
+    document.querySelectorAll('.upload-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        if (e.target && e.target.tagName === 'INPUT') return;
+        this.openCamera(item.dataset.type);
+      });
+    });
+
+    document.querySelectorAll('input[type="file"]').forEach((input) => {
+      input.addEventListener('change', (e) => this.handlePhotoUpload(e));
+    });
+
+    document.querySelectorAll('.style-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const current = document.querySelector('.style-btn.active'); if (current) current.classList.remove('active');
+        btn.classList.add('active'); this.currentStyle = btn.dataset.style;
+        if (this.isModelGenerated) this.applyStyle();
+      });
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', () => this.generate3DModel());
+    document.getElementById('exportBtn').addEventListener('click', () => this.exportCurrentView());
+  }
+
+  saveDraft() { try { localStorage.setItem('ff3_photos', JSON.stringify(this.uploadedPhotos)); } catch {} }
+  restoreDraft() {
+    try {
+      const obj = JSON.parse(localStorage.getItem('ff3_photos') || '{}');
+      ['front','left','right'].forEach(k => { if (obj[k]) { this.uploadedPhotos[k]=obj[k]; this.updateUploadUI(k,obj[k]); }});
+      this.updateUploadCount(); this.checkGenerateButton();
+    } catch {}
+  }
+
+  async openCamera(type) {
+    try {
+      this.captureForType = type;
+      document.getElementById('camTitle').textContent = `Take ${this.pretty(type)} Photo`;
+      this.modal.style.display = 'flex'; this.modal.setAttribute('aria-hidden', 'false');
+
+      const hint = document.getElementById('guideHint');
+      const arrowL = document.getElementById('arrowL'); const arrowR = document.getElementById('arrowR');
+      hint.textContent = (type==='front') ? 'Center your face in the oval' : (type==='left') ? 'Turn your head slightly LEFT' : 'Turn your head slightly RIGHT';
+      arrowL.style.display = (type==='left') ? 'block' : 'none';
+      arrowR.style.display = (type==='right') ? 'block' : 'none';
+
+      this.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user', width:{ideal:1080}, height:{ideal:1440} }, audio:false });
+      this.video.srcObject = this.stream; await this.video.play().catch(()=>{});
+
+      this.canvas.classList.add('hidden'); this.shutterBtn.classList.remove('hidden');
+      this.useBtn.classList.add('hidden'); this.retakeBtn.classList.add('hidden');
+
+      this.shutterBtn.onclick = () => this.countdownThen(() => this.takeSnapshot());
+      this.useBtn.onclick = () => this.commitSnapshot();
+      this.retakeBtn.onclick = () => this.retakeSnapshot();
+      this.pickBtn.onclick = () => { this.closeCamera(true); const input=document.getElementById(type+'Photo'); if (input) input.click(); };
+
+    } catch (err) {
+      console.warn('getUserMedia failed, fallback to picker:', err);
+      const input=document.getElementById(type+'Photo'); if (input) input.click();
+      this.closeCamera();
+    }
+  }
+
+  closeCamera(skipTypeReset=false) {
+    if (this.stream) { this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
+    this.video.srcObject = null;
+    this.modal.style.display = 'none'; this.modal.setAttribute('aria-hidden','true');
+    if (!skipTypeReset) this.captureForType = null;
+    this.canvas.classList.add('hidden'); this.shutterBtn.classList.remove('hidden');
+    this.useBtn.classList.add('hidden'); this.retakeBtn.classList.add('hidden');
+  }
+
+  async countdownThen(fn, secs=3) {
+    const cd = document.getElementById('countdown');
+    cd.style.display = 'block';
+    for (let i = secs; i >= 1; i--) {
+      cd.textContent = i;
+      await new Promise(r => setTimeout(r, 900));
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch {}
+    }
+    cd.style.display = 'none';
+    fn();
+  }
+
+  cropAndResizeFromVideo() {
+    const vw = this.video.videoWidth, vh = this.video.videoHeight;
+    if (!vw || !vh) return null;
+    const side = Math.min(vw, vh), sx=(vw-side)/2, sy=(vh-side)/2, target=Math.min(1080, side);
+    const off=document.createElement('canvas'); off.width=target; off.height=target;
+    const ctx=off.getContext('2d');
+    ctx.save(); ctx.translate(target,0); ctx.scale(-1,1);
+    ctx.drawImage(this.video, sx, sy, side, side, 0, 0, target, target); ctx.restore();
+    return off.toDataURL('image/jpeg', 0.92);
+  }
+
+  async takeSnapshot() {
+    const dataURL = this.cropAndResizeFromVideo(); if (!dataURL) return;
+    // Quick checks (async)
+    this.quickQualityChecks(dataURL).then(({ blurry, dark }) => {
+      if (blurry || dark) console.info('Quality note:', { blurry, dark });
+    }).catch(()=>{});
+
+    const img=new Image();
+    img.onload=()=>{ this.canvas.width=img.width; this.canvas.height=img.height; const ctx=this.canvas.getContext('2d'); ctx.drawImage(img,0,0);
+      this.canvas.classList.remove('hidden'); this.shutterBtn.classList.add('hidden');
+      this.useBtn.classList.remove('hidden'); this.retakeBtn.classList.remove('hidden'); };
+    img.src=dataURL;
+    this._pendingDataURL=dataURL;
+  }
+
+  retakeSnapshot() {
+    this.canvas.classList.add('hidden'); this.shutterBtn.classList.remove('hidden');
+    this.useBtn.classList.add('hidden'); this.retakeBtn.classList.add('hidden'); this._pendingDataURL=null;
+  }
+
+  commitSnapshot() {
+    try {
+      const dataURL=this._pendingDataURL || this.canvas.toDataURL('image/jpeg',0.92);
+      const type=this.captureForType; if (!type) return;
+      this.uploadedPhotos[type]=dataURL; this.updateUploadUI(type,dataURL);
+      this.updateUploadCount(); this.checkGenerateButton(); this.saveDraft();
+    } finally { this._pendingDataURL=null; this.closeCamera(); }
+  }
+
+  handlePhotoUpload(event) {
+    const file=event.target.files[0]; const photoType=event.target.id.replace('Photo',''); if (!file) return;
+    const reader=new FileReader();
+    reader.onload=(e)=>{ const dataURL=e.target.result; this.uploadedPhotos[photoType]=dataURL;
+      this.updateUploadUI(photoType,dataURL); this.updateUploadCount(); this.checkGenerateButton(); this.saveDraft(); };
+    reader.readAsDataURL(file);
+  }
+
+  quickQualityChecks(dataURL) {
+    return new Promise((resolve) => {
+      const tmp=document.createElement('canvas'); const ctx=tmp.getContext('2d'); const img=new Image();
+      img.onload=()=>{ const S=128; tmp.width=S; tmp.height=S; ctx.drawImage(img,0,0,S,S); const d=ctx.getImageData(0,0,S,S).data;
+        let lumSum=0; const gray=new Float32Array(S*S);
+        for (let i=0,j=0;i<d.length;i+=4,j++){ const y=0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2]; lumSum+=y; gray[j]=y; }
+        const meanLum=lumSum/(S*S); const dark=meanLum<50;
+        const kernel=[0,1,0,1,-4,1,0,1,0]; const conv=new Float32Array(S*S);
+        for (let y=1;y<S-1;y++){ for(let x=1;x<S-1;x++){ const i=y*S+x; let v=0,k=0;
+          for(let ky=-1;ky<=1;ky++){ for(let kx=-1;kx<=1;kx++){ v+=gray[i+ky*S+kx]*kernel[k++]; } }
+          conv[i]=v; } }
+        let sum=0,sum2=0,n=(S-2)*(S-2); for(let y=1;y<S-1;y++){ for(let x=1;x<S-1;x++){ const v=conv[y*S+x]; sum+=v; sum2+=v*v; } }
+        const mean=sum/n, variance=(sum2/n)-(mean*mean); const blurry=variance<1500;
+        resolve({ blurry, dark });
+      };
+      img.src=dataURL;
+    });
+  }
+
+  pretty(type){ return type.charAt(0).toUpperCase()+type.slice(1); }
+
+  updateUploadUI(photoType, imageSrc) {
+    const uploadItem=document.querySelector(`#${photoType}Photo`).parentElement;
+    const content=uploadItem.querySelector('.upload-content');
+    uploadItem.classList.add('uploaded');
+    content.innerHTML=`<img src="${imageSrc}" alt="${photoType} photo">
+      <div class="upload-text">${this.pretty(photoType)} ✓</div>
+      <div class="upload-hint">Tap to change (retake or pick)</div>`;
+    const t = {front:'thumb-front', left:'thumb-left', right:'thumb-right'}[photoType];
+    if (t) document.getElementById(t).src=imageSrc;
+  }
+
+  updateUploadCount() {
+    const count=Object.keys(this.uploadedPhotos).length;
+    document.getElementById('uploadCount').textContent=count;
+    document.getElementById('statusIndicator').className='status-indicator ' + (count===3?'ready':'pending');
+  }
+
+  checkGenerateButton() {
+    const count=Object.keys(this.uploadedPhotos).length, hasAll=count>=3;
+    const btn=document.getElementById('generateBtn');
+    btn.disabled=!hasAll; btn.textContent=hasAll ? '✨ Generate 3D Model' : `Upload ${3-count} more photos`;
+  }
+
+  async generate3DModel() {
+    if (this.isProcessing) return; this.isProcessing=true;
+    const btn=document.getElementById('generateBtn'); const bar=document.getElementById('progressFill');
+    btn.classList.add('processing'); btn.disabled=true; btn.textContent='🔄 Processing...';
+    for (let i=0;i<=100;i+=4){ bar.style.width=i+'%'; await new Promise(r=>setTimeout(r,80)); }
+    this.init3DViewer(); this.create3DHead(); this.applyStyle();
+    btn.classList.remove('processing'); btn.textContent='✅ Model Generated';
+    document.getElementById('exportBtn').disabled=false;
+    document.getElementById('touchControls').classList.remove('hidden');
+    this.isModelGenerated=true; this.isProcessing=false; this.animate();
+  }
+
+  init3DViewer() {
+    const viewer=document.getElementById('viewer'); viewer.innerHTML='';
+    this.scene=new THREE.Scene(); this.scene.background=new THREE.Color(0x1a1a2e);
+    const aspect=viewer.offsetWidth/viewer.offsetHeight;
+    this.camera=new THREE.PerspectiveCamera(75,aspect,0.1,1000); this.camera.position.z=5;
+    this.renderer=new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+    this.renderer.setSize(viewer.offsetWidth,viewer.offsetHeight); this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    viewer.appendChild(this.renderer.domElement);
+    const ambient=new THREE.AmbientLight(0x404040,0.7); this.scene.add(ambient);
+    const dir=new THREE.DirectionalLight(0xffffff,0.8); dir.position.set(3,3,3); this.scene.add(dir);
+    const fill=new THREE.DirectionalLight(0xffffff,0.3); fill.position.set(-3,0,3); this.scene.add(fill);
+  }
+
+  create3DHead() {
+    const headGeo=new THREE.SphereGeometry(1.2,32,32);
+    const headMat=new THREE.MeshPhongMaterial({ color:0xffdbac });
+    this.headMesh=new THREE.Mesh(headGeo,headMat); this.scene.add(this.headMesh);
+    const eyeGeo=new THREE.SphereGeometry(0.1,16,16); const eyeMat=new THREE.MeshPhongMaterial({ color:0x000000 });
+    const L=new THREE.Mesh(eyeGeo,eyeMat); L.position.set(-0.3,0.2,1.0);
+    const R=new THREE.Mesh(eyeGeo,eyeMat); R.position.set(0.3,0.2,1.0);
+    this.headMesh.add(L); this.headMesh.add(R);
+    const noseGeo=new THREE.ConeGeometry(0.08,0.2,8);
+    const noseMat=new THREE.MeshPhongMaterial({ color:0xffdbac });
+    const nose=new THREE.Mesh(noseGeo,noseMat); nose.position.set(0,0,1.1); this.headMesh.add(nose);
+  }
+
+  applyStyle() {
+    if (!this.headMesh) return;
+    const m=this.headMesh.material;
+    if (this.currentStyle==='realistic') m.color.setHex(0xffdbac);
+    if (this.currentStyle==='pixar')     m.color.setHex(0xffc0cb);
+    if (this.currentStyle==='ghibli')    m.color.setHex(0xffb6c1);
+    if (this.currentStyle==='sketch')    m.color.setHex(0xe0e0e0);
+  }
+
+  animate() {
+    if (this.renderer && this.scene && this.camera) { requestAnimationFrame(()=>this.animate()); this.renderer.render(this.scene,this.camera); }
+  }
+
+  exportCurrentView() {
+    if (!this.renderer) return;
+    try {
+      const dataURL=this.renderer.domElement.toDataURL('image/png');
+      const a=document.createElement('a'); a.download='faceforge-3d-export.png'; a.href=dataURL; a.click();
+      const btn=document.getElementById('exportBtn'); const t=btn.textContent; btn.textContent='✅ Exported!'; setTimeout(()=>btn.textContent=t,2000);
+    } catch (e) { console.error('Export failed:', e); alert('Export failed. Please try again.'); }
+  }
+
+  setupTouchControls() {
+    document.querySelectorAll('.control-btn').forEach((b)=>b.addEventListener('click',()=>{
+      if (!this.isModelGenerated) return;
+      const a=b.dataset.action, s=0.2;
+      if (a==='up') this.rotation.x-=s; if (a==='down') this.rotation.x+=s;
+      if (a==='left') this.rotation.y-=s; if (a==='right') this.rotation.y+=s;
+      if (a==='reset') { this.rotation={x:0,y:0}; if (this.camera) this.camera.position.z=5; }
+      if (this.headMesh) { this.headMesh.rotation.x=this.rotation.x; this.headMesh.rotation.y=this.rotation.y; }
+    }));
+    document.querySelectorAll('.zoom-btn').forEach((b)=>b.addEventListener('click',()=>{
+      if (!this.isModelGenerated || !this.camera) return; const a=b.dataset.action, z=0.5;
+      if (a==='zoom-in') this.camera.position.z=Math.max(2,this.camera.position.z-z);
+      if (a==='zoom-out') this.camera.position.z=Math.min(10,this.camera.position.z+z);
+    }));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => new FaceForge3DMobile());
+</script>
+</body>
+</html>
